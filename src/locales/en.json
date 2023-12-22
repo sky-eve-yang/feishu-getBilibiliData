@@ -1,0 +1,29 @@
+{
+  "title": "Bilibili Video Data Retrieval",
+  "selectGroup": {
+    "selectAll": "Select All",
+    "videoInfo": {
+      "uploader": "Uploader",
+      "releaseTime": "Release Time",
+      "danmuCount": "Danmu Count",
+      "coinCount": "Coin Count",
+      "viewCount": "View Count",
+      "collectionCount": "Collection Count",
+      "likeCount": "Like Count",
+      "shareCount": "Share Count",
+      "commentWc": "Comment Word Cloud",
+      "danmuWc": "Danmu Word Cloud"
+    }
+  },
+  "alerts": {
+    "selectNumberField": "Retrieve data such as views and comments based on the Bilibili video link",
+    "selectGroupFieldTip": "The plugin can automatically create selected fields. For mapping, ensure the field names in the multidimensional table match the option names. It is recommended that the 'Uploader' field be text, 'xx Count' fields be numeric, and 'Release Time' be a date field."
+  },
+  "labels": {
+    "link": "Link"
+  },
+  "placeholder": {
+    "link": "Please select the field column corresponding to the video link"
+  },
+  "submit": "Retrieve Data"
+}
