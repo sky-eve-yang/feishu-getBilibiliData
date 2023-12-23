@@ -12,7 +12,8 @@
       "likeCount": "点赞量",
       "shareCount": "转发量",
       "commentWc": "评论词云",
-      "danmuWc": "弹幕词云"
+      "danmuWc": "弹幕词云",
+      "fetchDataTime": "数据获取时间"
     }
   },
   "alerts": {

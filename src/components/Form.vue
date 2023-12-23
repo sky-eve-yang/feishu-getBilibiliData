@@ -26,7 +26,7 @@
 
 
     <!-- 提交按钮 -->
-    <el-button @click="writeData" :disabled="!issubmitAbled" color="#3370ff" type="primary" plain size="large">{{ $t('submit') }}</el-button>
+    <el-button v-loading="isWritingData" @click="writeData" :disabled="!issubmitAbled" color="#3370ff" type="primary" plain size="large">{{ $t('submit') }}</el-button>
   </el-form>
 </template>
 
@@ -43,15 +43,17 @@ const { t } = useI18n();
 const fieldListSeView = ref([])
 const linkFieldId = ref('')  // 链接字段Id
 
+const isWritingData = ref(false)
+
 const checkAllToMap = ref(false)
 const isIndeterminateToMap = ref(true)
 const fieldsToMap = ref([
   {
     "label": "uploader"
   },
-  // {
-  //   "label": "releaseTime"
-  // },
+  {
+    "label": "releaseTime"
+  },
   {
     "label": "danmuCount"
   },
@@ -69,23 +71,27 @@ const fieldsToMap = ref([
   },
   {
     "label": "shareCount"
+  },
+  {
+    "label": "commentWc"
+  },
+  {
+    "label": "danmuWc"
+  },
+  {
+    "label": "fetchDataTime"
   }
-  // {
-  //   "label": "commentWc"
-  // },
-  // {
-  //   "label": "danmuWc"
-  // }
 ])   //  可以创建的字段
 const checkedFieldsToMap = ref([
   'uploader',
-  // 'releaseTime',
-  // 'danmuCount',
+  'releaseTime',
+  'danmuCount',
   'coinCount',
   'viewCount',
   'collectionCount',
-  'likeCount'
-  // 'shareCount'
+  'likeCount',
+  'shareCount',
+  'fetchDataTime'
 ])   // 默认的to-map的字段
 
 const issubmitAbled = computed(() => {
@@ -99,6 +105,8 @@ const mappedFieldIds = ref({})
 // --001== 写入数据
 const writeData = async () => {
   // 获取字段数据Ids object类型
+  isWritingData.value = true
+
   {
     const mappedFields = getSelectedFieldsId(fieldListSeView.value, checkedFieldsToMap.value)
     console.log("writeData() >> original mappedFields", mappedFields)
@@ -117,7 +125,6 @@ const writeData = async () => {
 
     console.log("writeData() >> finished mappedFieldIds", mappedFieldIds.value)
   }
-  
   // 加载bitable实例
   const { tableId, viewId } = await bitable.base.getSelection();
   const table = await bitable.base.getActiveTable();
@@ -149,15 +156,28 @@ const writeData = async () => {
 
     for (let field of checkedFieldsToMap.value) {
       console.log("field", field)
-      if (field == 'uploader') {
+      if (field == 'uploader') {  // up主字段，Text 格式
         await table.setCellValue(mappedFieldIds.value[field], recordId, [{ type: 'text', text: totalVideoInfo.basicInfo[field] }])
-      } else {
+      } else if (field.endsWith('Count')) {  // xx量字段，Number格式
         await table.setCellValue(mappedFieldIds.value[field], recordId, totalVideoInfo.basicInfo[field])
+      } else if (field.endsWith('commentWc')) {  // 评论词云，附件格式
+        const attachmentField = await table.getFieldById(mappedFieldIds.value[field])
+        attachmentField.setValue(recordId, totalVideoInfo.commentWc)
+      } else if (field.endsWith('danmuWc')) {  // 弹幕词云，附件格式
+        const attachmentField = await table.getFieldById(mappedFieldIds.value[field])
+        attachmentField.setValue(recordId, totalVideoInfo.barrageWc)
+      } else if (field === 'releaseTime') { // 发布时间，datetime格式
+        const datetimeFieldId = await table.getFieldById(mappedFieldIds.value[field])
+        datetimeFieldId.setValue(recordId, totalVideoInfo.basicInfo[field])
+      } else if (field === 'fetchDataTime') { // 发布时间，datetime格式
+        const datetimeFieldId = await table.getFieldById(mappedFieldIds.value[field])
+        datetimeFieldId.setValue(recordId, Date.now())
       }
     }
 
   }
 
+  isWritingData.value = false
   await bitable.ui.showToast({
     toastType: 'success',
     message: '数据获取完成'
@@ -209,26 +229,60 @@ const getbilibilidatabylink = async (path, videoLink) => {
   var data = qs.stringify({
     'video_url': videoLink
   });
-  var config = {
-    method: 'post',
-    url: `https://getbilibilidatabylink.1326906378.repl.co/${path}`,
-    data : data
-  };
-
+  var url = `https://getbilibilidatabylink.1326906378.repl.co/${path}`
   let res;
-  await axios(config)
-  .then(function (response) {
-    console.log("getbilibilidatabylink() >> response.data || res", response.data);
-    res = response.data
-  })
-  .catch(function (error) {
-    console.log(error);
-  });
+
+  if (path === 'get_bilibili_data') {
+    var config = {
+      method: 'post',
+      url: url,
+      data : data
+    };
+
+    await axios(config)
+    .then(function (response) {
+      console.log("getbilibilidatabylink() >> response.data || res", response.data);
+      res = response.data
+    })
+    .catch(function (error) {
+      console.log(error);
+    });
+    
+    if (res.status === 200)
+      return res.info
+    else 
+      return {"status": "-100", "result": res}
+  } else if (path === 'generate_comment_wordcloud') {
+
+    await axios.post(url, data, { responseType: 'blob' })
+    .then(response => {
+      // 将 Blob 转换为 File 对象
+      const file = new File([response.data], "comment_wordcloud.png", { type: "image/png" });
+      // 在这里可以根据需要处理 file 对象
+      // 例如上传文件、添加到 FormData 或其他操作
+      res = file
+    })
+    .catch(error => {
+      console.error('Error:', error);
+    });
+
+    return res
+  } else if (path === 'generate_barrage_wordcloud') {
+    await axios.post(url, data, { responseType: 'blob' })
+    .then(response => {
+      // 将 Blob 转换为 File 对象
+      const file = new File([response.data], "barrage_wordcloud.png", { type: "image/png" });
+      // 在这里可以根据需要处理 file 对象
+      // 例如上传文件、添加到 FormData 或其他操作
+      res = file
+    })
+    .catch(error => {
+      console.error('Error:', error);
+    });
+
+    return res
+    } 
   
-  if (res.status === 200)
-    return res.info
-  else 
-    return {"status": "-100", "result": res}
 };  
 
 
@@ -242,9 +296,15 @@ const createFields = async () => {
       switch (key) {
         case "uploader": 
           mappedFieldIds.value[key] = await table.addField({
-              type: FieldType.Text,
-              name: t(`selectGroup.videoInfo.uploader`),
-            })
+            type: FieldType.Text,
+            name: t(`selectGroup.videoInfo.uploader`),
+          })
+          break;
+        case "releaseTime":
+          mappedFieldIds.value[key] = await table.addField({
+            type: FieldType.DateTime,
+            name: t(`selectGroup.videoInfo.${key}`),
+          })
           break;
         case "danmuCount":
         case "coinCount":
@@ -261,6 +321,12 @@ const createFields = async () => {
         case "danmuWc":
           mappedFieldIds.value[key] = await table.addField({
             type: FieldType.Attachment,
+            name: t(`selectGroup.videoInfo.${key}`),
+          })
+          break;
+        case "fetchDataTime":
+          mappedFieldIds.value[key] = await table.addField({
+            type: FieldType.DateTime,
             name: t(`selectGroup.videoInfo.${key}`),
           })
           break;
@@ -303,12 +369,12 @@ const getDataByCheckedFields = async(videoLink) => {
       basicInfo = await getbilibilidatabylink('get_bilibili_data', videoLink)
     }
 
-    if (checkedFieldsToMap.value.includes('generate_comment_wordcloud')) {
-      commentWc = await getbilibilidatabylink('get_bilibili_data', videoLink)
+    if (checkedFieldsToMap.value.includes('commentWc')) {
+      commentWc = await getbilibilidatabylink('generate_comment_wordcloud', videoLink)
     }
 
-    if (checkedFieldsToMap.value.includes('generate_barrage_wordcloud')) {
-      commentWc = await getbilibilidatabylink('get_bilibili_data', videoLink)
+    if (checkedFieldsToMap.value.includes('danmuWc')) {
+      barrageWc = await getbilibilidatabylink('generate_barrage_wordcloud', videoLink)
     }
 
 
@@ -353,6 +419,8 @@ onMounted(async () => {
   console.log("onMounted >> fieldListSeView", fieldListSeView.value)
   console.log("onMounted >> checkedFieldsToMap", checkedFieldsToMap.value)
   
+  // const res = await getDataByCheckedFields('https://www.bilibili.com/video/BV15w411T7Jf/')
+  // console.log("onMounted() >> getDataByCheckedFields", res)
 
 
   // 获取字段列表 -- end
