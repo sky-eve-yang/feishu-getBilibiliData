@@ -19,6 +19,23 @@
         </el-checkbox>
       </el-checkbox-group>
     </div>
+    <div style="margin-top: 20px;" v-if="checkedFieldsToMap.includes('totalInterCount')">
+      <el-select
+        
+        v-model="toCalcInterCount"
+        multiple
+        :placeholder="$t('placeholder.interCount')"
+        style="width: 100%;"
+        size="large"
+      >
+        <el-option
+          v-for="item in allToCalcInterCount"
+          :key="item.label"
+          :label="$t(`selectGroup.videoInfo.${item.label}`)"
+          :value="item.label"
+        />
+      </el-select>
+    </div>
     <el-alert style="display: flex;align-items: flex-start;margin: 20px 0;background-color: #e1eaff;color: #606266;" :title="$t('alerts.selectGroupFieldTip')" type="info" show-icon />
 
 
@@ -49,6 +66,9 @@ const checkAllToMap = ref(false)
 const isIndeterminateToMap = ref(true)
 const fieldsToMap = ref([
   {
+    "label": "title"
+  },
+  {
     "label": "uploader"
   },
   {
@@ -73,16 +93,23 @@ const fieldsToMap = ref([
     "label": "shareCount"
   },
   {
+    "label": "commentCount"
+  },
+  {
     "label": "commentWc"
   },
   {
     "label": "danmuWc"
   },
   {
+    "label": "totalInterCount"
+  },
+  {
     "label": "fetchDataTime"
   }
 ])   //  可以创建的字段
 const checkedFieldsToMap = ref([
+  'title',
   'uploader',
   'releaseTime',
   'danmuCount',
@@ -91,8 +118,12 @@ const checkedFieldsToMap = ref([
   'collectionCount',
   'likeCount',
   'shareCount',
+  'commentCount',
   'fetchDataTime'
 ])   // 默认的to-map的字段
+
+const toCalcInterCount = ref(['likeCount','collectionCount', 'shareCount', 'commentCount'])  // 实际用于计算“总交互量”的字段
+const allToCalcInterCount = ref({})  // 可用于计算"总交互量"的字段
 
 const issubmitAbled = computed(() => {
   return linkFieldId.value && checkedFieldsToMap.value.length
@@ -156,9 +187,9 @@ const writeData = async () => {
 
     for (let field of checkedFieldsToMap.value) {
       console.log("field", field)
-      if (field == 'uploader') {  // up主字段，Text 格式
+      if (field == 'uploader' || field == 'title') {  // up主字段和标题字段，Text 格式
         await table.setCellValue(mappedFieldIds.value[field], recordId, [{ type: 'text', text: totalVideoInfo.basicInfo[field] }])
-      } else if (field.endsWith('Count')) {  // xx量字段，Number格式
+      } else if (field.endsWith('Count') && field !== 'totalInterCount') {  // xx量字段，Number格式 注：总互动量字段单独处理
         await table.setCellValue(mappedFieldIds.value[field], recordId, totalVideoInfo.basicInfo[field])
       } else if (field.endsWith('commentWc')) {  // 评论词云，附件格式
         const attachmentField = await table.getFieldById(mappedFieldIds.value[field])
@@ -169,9 +200,12 @@ const writeData = async () => {
       } else if (field === 'releaseTime') { // 发布时间，datetime格式
         const datetimeFieldId = await table.getFieldById(mappedFieldIds.value[field])
         datetimeFieldId.setValue(recordId, totalVideoInfo.basicInfo[field])
-      } else if (field === 'fetchDataTime') { // 发布时间，datetime格式
+      } else if (field === 'fetchDataTime') { // 数据获取时间，datetime格式
         const datetimeFieldId = await table.getFieldById(mappedFieldIds.value[field])
         datetimeFieldId.setValue(recordId, Date.now())
+      } else if (field === 'totalInterCount') { // 总互动量
+        const totalInterCount = toCalcInterCount.value.reduce((total, key) => total + totalVideoInfo.basicInfo[key], 0);
+        await table.setCellValue(mappedFieldIds.value[field], recordId, totalInterCount)
       }
     }
 
@@ -294,6 +328,12 @@ const createFields = async () => {
   for (let key in mappedFieldIds.value) {
     if (mappedFieldIds.value[key] === -1) {
       switch (key) {
+        case "title":  // 视频名称
+          mappedFieldIds.value[key] = await table.addField({
+            type: FieldType.Text,
+            name: t(`selectGroup.videoInfo.title`),
+          })
+          break;
         case "uploader": 
           mappedFieldIds.value[key] = await table.addField({
             type: FieldType.Text,
@@ -311,6 +351,8 @@ const createFields = async () => {
         case "viewCount":
         case "collectionCount":
         case "likeCount":
+        case "commentCount":  // 评论量
+        case "totalInterCount":  // 总互动量
         case "shareCount":
           mappedFieldIds.value[key] = await table.addField({
             type: FieldType.Number,
@@ -364,7 +406,10 @@ const getDataByCheckedFields = async(videoLink) => {
       checkedFieldsToMap.value.includes('viewCount') ||
       checkedFieldsToMap.value.includes('collectionCount') ||
       checkedFieldsToMap.value.includes('likeCount') ||
-      checkedFieldsToMap.value.includes('shareCount')
+      checkedFieldsToMap.value.includes('shareCount') || 
+      checkedFieldsToMap.value.includes('commentCount') || 
+      checkedFieldsToMap.value.includes('title') || 
+      checkedFieldsToMap.value.includes('totalInterCount')     
     ) {
       basicInfo = await getbilibilidatabylink('get_bilibili_data', videoLink)
     }
@@ -416,26 +461,17 @@ onMounted(async () => {
   const table = await bitable.base.getTableById(selection.tableId)
   const view = await table.getViewById(selection.viewId)
   fieldListSeView.value = await view.getFieldMetaList()
-  console.log("onMounted >> fieldListSeView", fieldListSeView.value)
-  console.log("onMounted >> checkedFieldsToMap", checkedFieldsToMap.value)
-  
-  // const res = await getDataByCheckedFields('https://www.bilibili.com/video/BV15w411T7Jf/')
-  // console.log("onMounted() >> getDataByCheckedFields", res)
-
-
+  console.log("onMounted >> 多维表格字段", fieldListSeView.value)
+  console.log("onMounted >> 已选中的b站数据字段", checkedFieldsToMap.value)
   // 获取字段列表 -- end
   
-  // 从缓存中获取数据 -- start
-  // if (localStorage.getItem('ossConfig') !== null) {
-  //   ossConfig.value = JSON.parse(localStorage.getItem('ossConfig')) 
-  // }
-  // if (localStorage.getItem('attchImgFieldId') !== null) {
-  //   attchImgFieldId.value = localStorage.getItem('attchImgFieldId')
-  // }
-  // if (localStorage.getItem('linkFieldId') !== null) {
-  //   linkFieldId.value = localStorage.getItem('linkFieldId')
-  // }
-  // 从缓存中获取数据 -- end
+
+  // 初始化可参与计算 “总交互量” 的对象数组，以“Count”结尾的
+  allToCalcInterCount.value = fieldsToMap.value
+    .filter(item => item.label.endsWith('Count'));
+
+  console.log("onMounted >> allToCalcInterCount", allToCalcInterCount.value);
+
 });
     
 </script>

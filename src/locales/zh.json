@@ -3,6 +3,7 @@
   "selectGroup": {
     "selectAll": "全选",
     "videoInfo": {
+      "title": "视频名称",
       "uploader": "up主",
       "releaseTime": "发布时间",
       "danmuCount": "弹幕量",
@@ -11,6 +12,8 @@
       "collectionCount": "收藏量",
       "likeCount": "点赞量",
       "shareCount": "转发量",
+      "commentCount": "评论量",
+      "totalInterCount": "总互动量",
       "commentWc": "评论词云",
       "danmuWc": "弹幕词云",
       "fetchDataTime": "数据获取时间"
@@ -18,7 +21,7 @@
   },
   "alerts": {
     "selectNumberField": "依据b站视频链接，获取播放量及评论等数据",
-    "selectGroupFieldTip": "插件可自动创建所选字段。如需映射，请确保多维表格中的字段名称和选项名称一致，建议“up主”字段类型为文本，“xx量”字段类型为数字， “发布时间”字段为日期。"
+    "selectGroupFieldTip": "插件可自动创建所选字段。如需映射，请确保多维表格中的字段名称和选项名称一致，建议“up主”字段类型为文本，“xx量”字段类型为数字， “发布时间”字段为日期。“总互动量”字段可进行多字段计算"
   },
   "labels": {
     "link": "链接"
@@ -30,7 +33,8 @@
     "attachment": "类型校验失败：类型不是附件"
   },
   "placeholder": {
-    "link": "请选择视频链接对应的字段列"
+    "link": "请选择视频链接对应的字段列",
+    "interCount": "请选择所有需要计算的字段列"
   },
   "submit": "获取数据"
 } 
